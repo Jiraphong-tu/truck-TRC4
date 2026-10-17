@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TBL Fleet Service - ระบบแจ้งซ่อมและติดตามสถานะรถบรรทุก</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts - Kanit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                    },
+                    colors: {
+                        navy: {
+                            800: '#1e293b',
+                            900: '#0f172a',
+                            950: '#020617',
+                        },
+                        brand: {
+                            blue: '#1e40af',
+                            orange: '#f97316',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Hide scrollbars for slick UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .checkbox-card:checked + label {
+            border-color: #3b82f6;
+            background-color: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+        }
+        .severity-radio:checked + label {
+            ring-width: 4px;
+            transform: scale(1.02);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-blue-600 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-md border-b border-slate-800 shadow-lg px-4 py-3">
+        <div class="max-w-md mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-xl text-white shadow-md shadow-blue-500/20">
+                    <i class="fa-solid fa-truck-moving text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight tracking-wide text-white">TBL FLEET</h1>
+                    <p class="text-xs text-slate-400">ระบบแจ้งซ่อม & สถานะรถบรรทุก</p>
+                </div>
+            </div>
+            
+            <!-- Tab Toggle Controls -->
+            <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+                <button id="nav-driver-btn" onclick="switchTab('driver')" class="px-3 py-1.5 rounded-lg font-medium transition-all duration-200 bg-blue-600 text-white shadow">
+                    <i class="fa-solid fa-wrench mr-1"></i> พขร.
+                </button>
+                <button id="nav-exec-btn" onclick="switchTab('exec')" class="px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-slate-400 hover:text-slate-200">
+                    <i class="fa-solid fa-chart-line mr-1"></i> ผู้บริหาร
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="max-w-md mx-auto w-full px-4 py-4 flex-grow">
+
+        <!-- ================================================================= -->
+        <!-- VIEW 1: TRUCK DRIVER REPORTING FORM (พขร. แจ้งซ่อม)               -->
+        <!-- ================================================================= -->
+        <section id="driver-view" class="space-y-5 block">
+            <div class="bg-slate-800/80 rounded-2xl p-4 border border-slate-700/60 shadow-xl">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2">
+                    <h2 class="text-base font-semibold text-blue-400 flex items-center">
+                        <i class="fa-solid fa-clipboard-check mr-2"></i> บันทึกแจ้งซ่อมรถประจำวัน
+                    </h2>
+                    <span class="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">พนักงานขับรถ</span>
+                </div>
+
+                <form id="repair-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    
+                    <!-- 1. Vehicle Selection & Odometer -->
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">
+                                เลือกทะเบียนรถ / เบอร์รถ <span class="text-red-400">*</span>
+                            </label>
+                            <div class="relative">
+                                <select id="truck-select" required onchange="handleTruckChange()" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none">
+                                    <option value="" disabled selected>-- เลือกทะเบียนรถบรรทุก --</option>
+                                    <option value="70-1001 (หัวลาก Isuzu 360)">70-1001 (หัวลาก Isuzu 360)</option>
+                                    <option value="70-1002 (หัวลาก Hino 380)">70-1002 (หัวลาก Hino 380)</option>
+                                    <option value="70-2001 (สิบล้อตู้ Volvo)">70-2001 (สิบล้อตู้ Volvo)</option>
+                                    <option value="70-2002 (สิบล้อพื้นเรียบ Scania)">70-2002 (สิบล้อพื้นเรียบ Scania)</option>
+                                    <option value="70-3001 (พ่วงดัมพ์ UD Trucks)">70-3001 (พ่วงดัมพ์ UD Trucks)</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                                </div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 mt-1"><i class="fa-solid fa-qrcode text-blue-400 mr-1"></i>สามารถสแกน QR Code ติดหน้ารถเพื่อเลือกรถอัตโนมัติได้</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-medium text-slate-300 mb-1">
+                                เลขไมล์ปัจจุบัน (กม.) <span class="text-red-400">*</span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="odometer" required placeholder="เช่น 425800" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <span class="absolute right-3 top-2.5 text-xs text-slate-500">กิโลเมตร</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Severity Status Selection -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-2">
+                            ระดับความรุนแรง / สถานะ <span class="text-red-400">*</span>
+                        </label>
+                        <div class="grid grid-cols-1 gap-2">
+                            <!-- Breakdown Button -->
+                            <div>
+                                <input type="radio" id="sev-breakdown" name="severity" value="breakdown" class="hidden severity-radio" required>
+                                <label for="sev-breakdown" class="flex items-center justify-between p-3 rounded-xl border-2 border-red-900/60 bg-red-950/30 text-red-300 cursor-pointer hover:bg-red-950/50 transition">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+                                        <div>
+                                            <p class="font-bold text-sm text-red-200">🔴 Breakdown (จอดเสียฉุกเฉิน)</p>
+                                            <p class="text-[11px] text-red-400/80">รถวิ่งไม่ได้ / ต้องหยุดงานทันที</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-triangle-exclamation text-lg text-red-500"></i>
+                                </label>
+                            </div>
+
+                            <!-- Urgent Button -->
+                            <div>
+                                <input type="radio" id="sev-urgent" name="severity" value="urgent" class="hidden severity-radio">
+                                <label for="sev-urgent" class="flex items-center justify-between p-3 rounded-xl border-2 border-amber-900/60 bg-amber-950/30 text-amber-300 cursor-pointer hover:bg-amber-950/50 transition">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                                        <div>
+                                            <p class="font-bold text-sm text-amber-200">🟡 Urgent (วิ่งได้แต่ต้องรีบซ่อม)</p>
+                                            <p class="text-[11px] text-amber-400/80">ประคองวิ่งจบงาน แล้วเข้าอู่ทันที</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-circle-exclamation text-lg text-amber-500"></i>
+                                </label>
+                            </div>
+
+                            <!-- Minor / Scheduled Button -->
+                            <div>
+                                <input type="radio" id="sev-minor" name="severity" value="minor" class="hidden severity-radio" checked>
+                                <label for="sev-minor" class="flex items-center justify-between p-3 rounded-xl border-2 border-emerald-900/60 bg-emerald-950/30 text-emerald-300 cursor-pointer hover:bg-emerald-950/50 transition">
+                                    <div class="flex items-center space-x-3">
+                                        <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                                        <div>
+                                            <p class="font-bold text-sm text-emerald-200">🟢 Minor / Scheduled (ซ่อมทั่วไป)</p>
+                                            <p class="text-[11px] text-emerald-400/80">วิ่งได้ปกติ แจ้งซ่อมเก็บงาน / รอบ PM</p>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-wrench text-lg text-emerald-500"></i>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Problem Categories -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">
+                            หมวดหมู่ที่พบปัญหา <span class="text-slate-400 text-[10px]">(เลือกได้มากกว่า 1 ข้อ)</span>
+                        </label>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="relative">
+                                <input type="checkbox" id="cat-engine" name="category" value="เครื่องยนต์" class="hidden checkbox-card">
+                                <label for="cat-engine" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-oil-can text-blue-400"></i>
+                                    <span>เครื่องยนต์</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-gear" name="category" value="เกียร์ / ระบบส่งกำลัง" class="hidden checkbox-card">
+                                <label for="cat-gear" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-gear text-blue-400"></i>
+                                    <span>เกียร์ / ส่งกำลัง</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-brake" name="category" value="ระบบเบรก/ลม" class="hidden checkbox-card">
+                                <label for="cat-brake" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-ban text-blue-400"></i>
+                                    <span>ระบบเบรก/ลม</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-suspension" name="category" value="ช่วงล่าง" class="hidden checkbox-card">
+                                <label for="cat-suspension" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-truck-pickup text-blue-400"></i>
+                                    <span>ช่วงล่าง</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-electric" name="category" value="ระบบไฟฟ้า" class="hidden checkbox-card">
+                                <label for="cat-electric" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-bolt text-blue-400"></i>
+                                    <span>ระบบไฟฟ้า</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-ac" name="category" value="แอร์" class="hidden checkbox-card">
+                                <label for="cat-ac" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-snowflake text-blue-400"></i>
+                                    <span>แอร์</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-body" name="category" value="ตัวถัง" class="hidden checkbox-card">
+                                <label for="cat-body" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-truck text-blue-400"></i>
+                                    <span>ตัวถัง</span>
+                                </label>
+                            </div>
+
+                            <div class="relative">
+                                <input type="checkbox" id="cat-other" name="category" value="อื่นๆ" class="hidden checkbox-card">
+                                <label for="cat-other" class="flex items-center space-x-2 p-2.5 rounded-xl border border-slate-700 bg-slate-900 text-slate-300 cursor-pointer transition">
+                                    <i class="fa-solid fa-ellipsis text-blue-400"></i>
+                                    <span>อื่นๆ</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Description Detail -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">รายละเอียดอาการเสียเพิ่มเติม</label>
+                        <textarea id="description" rows="3" placeholder="อธิบายรายละเอียดอาการ เช่น มีเสียงลมรั่วที่หางลาก, ไฟหน้าขวาดับ..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    </div>
+
+                    <!-- 5. Photo Upload & Preview -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">แนบรูปถ่ายอาการเสีย / เรือนไมล์</label>
+                        <div class="flex items-center justify-center w-full">
+                            <label for="photo-upload" class="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-slate-900 hover:bg-slate-800/60 transition">
+                                <div class="flex flex-col items-center justify-center pt-2 pb-2">
+                                    <i class="fa-solid fa-camera text-slate-400 text-xl mb-1"></i>
+                                    <p class="text-xs text-slate-300 font-medium">กดเพื่อถ่ายรูป หรือเลือกจากคลังภาพ</p>
+                                    <p class="text-[10px] text-slate-500">รองรับไฟล์ PNG, JPG</p>
+                                </div>
+                                <input id="photo-upload" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleImagePreview(event)" />
+                            </label>
+                        </div>
+                        <!-- Image Preview Container -->
+                        <div id="image-preview-container" class="mt-2 hidden relative rounded-xl overflow-hidden border border-slate-700 max-h-40">
+                            <img id="image-preview" src="" alt="Preview" class="w-full object-cover">
+                            <button type="button" onclick="removeImage()" class="absolute top-2 right-2 bg-red-600/80 text-white rounded-full p-1.5 text-xs hover:bg-red-700 transition">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 6. GPS Location Sharing -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-location-dot text-red-500 text-lg"></i>
+                            <div>
+                                <p class="text-xs font-medium text-slate-200">ตำแหน่ง GPS ปัจจุบัน</p>
+                                <p id="gps-status" class="text-[10px] text-slate-400">ยังไม่ได้ดึงพิกัด</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="getGPSLocation()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg text-xs font-medium text-blue-400 transition flex items-center">
+                            <i class="fa-solid fa-crosshairs mr-1"></i> ดึงพิกัด
+                        </button>
+                    </div>
+
+                    <!-- Driver Info -->
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">ชื่อ พขร. ผู้แจ้งเรื่อง <span class="text-red-400">*</span></label>
+                        <input type="text" id="driver-name" required placeholder="ระบุชื่อ-นามสกุล ของท่าน" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-blue-600/30 transition transform active:scale-95 flex items-center justify-center space-x-2 text-base">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>ส่งข้อมูลแจ้งซ่อม</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+
+        <!-- ================================================================= -->
+        <!-- VIEW 2: EXECUTIVE MOBILE DASHBOARD (ผู้บริหาร)                   -->
+        <!-- ================================================================= -->
+        <section id="exec-view" class="space-y-4 hidden">
+            
+            <!-- Fleet Availability Overview Card -->
+            <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-2xl p-4 border border-slate-700 shadow-xl relative overflow-hidden">
+                <div class="flex justify-between items-start mb-2">
+                    <div>
+                        <span class="text-xs text-slate-400 font-medium">ภาพรวมความพร้อมใช้งานฟรีท</span>
+                        <h2 class="text-2xl font-black text-white">Fleet Availability</h2>
+                    </div>
+                    <div class="text-right">
+                        <span id="fleet-availability-rate" class="text-3xl font-extrabold text-emerald-400">80%</span>
+                        <p class="text-[10px] text-slate-400">เป้าหมาย &gt; 90%</p>
+                    </div>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="w-full bg-slate-700/60 rounded-full h-3 overflow-hidden flex mb-2">
+                    <div id="bar-ready" style="width: 80%" class="bg-emerald-500 h-full transition-all duration-500"></div>
+                    <div id="bar-repair" style="width: 10%" class="bg-amber-500 h-full transition-all duration-500"></div>
+                    <div id="bar-breakdown" style="width: 10%" class="bg-red-500 h-full transition-all duration-500"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400">
+                    <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> พร้อมใช้</span>
+                    <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-amber-500 mr-1"></span> อยู่ระหว่างซ่อม</span>
+                    <span class="flex items-center"><span class="w-2 h-2 rounded-full bg-red-500 mr-1"></span> จอดเสีย</span>
+                </div>
+            </div>
+
+            <!-- Fleet Status Quick Summary Cards -->
+            <div class="grid grid-cols-4 gap-2 text-center">
+                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 block">พร้อมใช้งาน</span>
+                    <span id="cnt-ready" class="text-xl font-bold text-emerald-400">8</span>
+                    <span class="text-[9px] text-slate-500 block">คัน</span>
+                </div>
+                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 block">กำลังซ่อม</span>
+                    <span id="cnt-repair" class="text-xl font-bold text-amber-400">1</span>
+                    <span class="text-[9px] text-slate-500 block">คัน</span>
+                </div>
+                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 block">รออะไหล่/คิว</span>
+                    <span id="cnt-pending" class="text-xl font-bold text-blue-400">0</span>
+                    <span class="text-[9px] text-slate-500 block">คัน</span>
+                </div>
+                <div class="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60">
+                    <span class="text-[10px] text-slate-400 block">จอดเสีย</span>
+                    <span id="cnt-breakdown" class="text-xl font-bold text-red-400">1</span>
+                    <span class="text-[9px] text-slate-500 block">คัน</span>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="flex items-center justify-between pt-1">
+                <h3 class="text-sm font-semibold text-slate-200"><i class="fa-solid fa-list-check mr-1 text-blue-400"></i> รายการแจ้งซ่อมล่าสุด</h3>
+                <select id="filter-status" onchange="renderFleetList()" class="bg-slate-800 border border-slate-700 rounded-lg text-xs px-2 py-1 text-slate-300 focus:outline-none">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="breakdown">เฉพาะ Breakdown</option>
+                    <option value="repair">อยู่ระหว่างซ่อม</option>
+                    <option value="ready">พร้อมใช้งาน</option>
+                </select>
+            </div>
+
+            <!-- Truck Ticket Cards List Container -->
+            <div id="truck-tickets-list" class="space-y-3">
+                <!-- Dynamically Populated by JavaScript -->
+            </div>
+
+            <!-- Settings & LINE Notify Token Box -->
+            <div class="mt-6 bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div class="flex items-center space-x-2 text-slate-300 text-xs font-semibold">
+                    <i class="fa-brands fa-line text-emerald-500 text-base"></i>
+                    <span>ตั้งค่า LINE Notify & Webhook</span>
+                </div>
+                <p class="text-[11px] text-slate-400 leading-relaxed">
+                    ใส่ Token เพื่อทดสอบส่งการแจ้งเตือนไปยังกลุ่ม LINE ผู้บริหารและช่างทันทีเมื่อ พขร. ส่งเรื่องแจ้งซ่อม
+                </p>
+                <div class="space-y-2">
+                    <input type="text" id="line-token-input" placeholder="ใส่ LINE Notify Token หรือ Webhook URL" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500">
+                    <button type="button" onclick="saveLineToken()" class="w-full bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-medium py-2 rounded-xl transition">
+                        บันทึกการเชื่อมต่อ LINE
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Footer Bar for Easy One-Hand Mobile Usage -->
+    <footer class="bg-slate-950 border-t border-slate-800 py-2.5 px-4 sticky bottom-0 z-40">
+        <div class="max-w-md mx-auto flex justify-around items-center">
+            <button onclick="switchTab('driver')" id="footer-driver-btn" class="flex flex-col items-center text-blue-400">
+                <i class="fa-solid fa-wrench text-lg mb-0.5"></i>
+                <span class="text-[10px] font-medium">แจ้งซ่อม (พขร.)</span>
+            </button>
+            <button onclick="switchTab('exec')" id="footer-exec-btn" class="flex flex-col items-center text-slate-500 hover:text-slate-300">
+                <i class="fa-solid fa-chart-pie text-lg mb-0.5"></i>
+                <span class="text-[10px] font-medium">ผู้บริหาร (Dashboard)</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- Custom Notification Popup Box -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 hidden bg-slate-800 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-3 w-11/12 max-w-md">
+        <div id="toast-icon" class="text-xl"></div>
+        <div class="flex-grow">
+            <h4 id="toast-title" class="font-bold text-xs"></h4>
+            <p id="toast-msg" class="text-[11px] text-slate-300"></p>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Mock Initial Fleet Data
+        let fleetData = [
+            {
+                id: 'TK-1001',
+                truck: '70-1001 (หัวลาก Isuzu 360)',
+                driver: 'สมชาย ใจดี',
+                odometer: '425,800',
+                severity: 'breakdown',
+                categories: ['ระบบเบรก/ลม', 'เครื่องยนต์'],
+                description: 'ลมเบรกรั่วแรงมากบริเวณหางลาก ตัวปรับความดันลมตกตลอดเวลา รถเดินต่อไม่ได้',
+                gps: '13.1234, 100.9876 (แหลมฉบัง)',
+                photo: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=500&auto=format&fit=crop&q=60',
+                status: 'breakdown', // breakdown, repair, pending, ready
+                time: '10 นาทีที่แล้ว'
+            },
+            {
+                id: 'TK-1002',
+                truck: '70-1002 (หัวลาก Hino 380)',
+                driver: 'วิชัย รักดี',
+                odometer: '310,450',
+                severity: 'urgent',
+                categories: ['แอร์', 'ระบบไฟฟ้า'],
+                description: 'คอมเพรสเซอร์แอร์ดังสั่น พัดลมหม้อน้ำทำงานไม่สมบูรณ์',
+                gps: '13.5500, 100.7200 (บางพลี)',
+                photo: null,
+                status: 'repair',
+                time: '2 ชั่วโมงที่แล้ว'
+            },
+            { id: 'TK-2001', truck: '70-2001 (สิบล้อตู้ Volvo)', status: 'ready', severity: 'minor', driver: 'อนันต์ สุขใจ', odometer: '189,000', categories: [], description: '-', gps: null, photo: null, time: '1 วันที่แล้ว' },
+            { id: 'TK-2002', truck: '70-2002 (สิบล้อพื้นเรียบ Scania)', status: 'ready', severity: 'minor', driver: 'สมศักดิ์ มีสุข', odometer: '210,000', categories: [], description: '-', gps: null, photo: null, time: '2 วันที่แล้ว' },
+            { id: 'TK-3001', truck: '70-3001 (พ่วงดัมพ์ UD Trucks)', status: 'ready', severity: 'minor', driver: 'ประสิทธิ์ มั่นคง', odometer: '150,200', categories: [], description: '-', gps: null, photo: null, time: '3 วันที่แล้ว' },
+            { id: 'TK-3002', truck: '70-3002 (หัวลาก Scania 450)', status: 'ready', severity: 'minor', driver: 'มนัส ชูเกียรติ', odometer: '98,000', categories: [], description: '-', gps: null, photo: null, time: '3 วันที่แล้ว' },
+            { id: 'TK-3003', truck: '70-3003 (สิบล้อ Isuzu 240)', status: 'ready', severity: 'minor', driver: 'กิตติศักดิ์ บุญมี', odometer: '340,000', categories: [], description: '-', gps: null, photo: null, time: '4 วันที่แล้ว' },
+            { id: 'TK-3004', truck: '70-3004 (หัวลาก MAN TGX)', status: 'ready', severity: 'minor', driver: 'วีระพงษ์ ยิ้มแย้ม', odometer: '112,000', categories: [], description: '-', gps: null, photo: null, time: '5 วันที่แล้ว' },
+            { id: 'TK-3005', truck: '70-3005 (พ่วงคอก Hino 500)', status: 'ready', severity: 'minor', driver: 'สุรชัย เจริญ', odometer: '275,000', categories: [], description: '-', gps: null, photo: null, time: '5 วันที่แล้ว' },
+            { id: 'TK-3006', truck: '70-3006 (สิบล้อ Volvo FMX)', status: 'ready', severity: 'minor', driver: 'ธนกฤต แจ่มใส', odometer: '164,000', categories: [], description: '-', gps: null, photo: null, time: '6 วันที่แล้ว' }
+        ];
+
+        let currentGPS = null;
+        let uploadedImageData = null;
+
+        // Initialize App on Load
+        window.onload = function() {
+            renderFleetList();
+            updateDashboardMetrics();
+            
+            // Auto check URL parameters if scanned via QR Code
+            const urlParams = new URLSearchParams(window.location.search);
+            const truckParam = urlParams.get('truck');
+            if(truckParam) {
+                const selectEl = document.getElementById('truck-select');
+                for(let i=0; i<selectEl.options.length; i++) {
+                    if(selectEl.options[i].value.includes(truckParam)) {
+                        selectEl.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+        };
+
+        // Tab Switcher
+        function switchTab(tab) {
+            const driverView = document.getElementById('driver-view');
+            const execView = document.getElementById('exec-view');
+            
+            const navDriverBtn = document.getElementById('nav-driver-btn');
+            const navExecBtn = document.getElementById('nav-exec-btn');
+            const footerDriverBtn = document.getElementById('footer-driver-btn');
+            const footerExecBtn = document.getElementById('footer-exec-btn');
+
+            if (tab === 'driver') {
+                driverView.classList.remove('hidden');
+                execView.classList.add('hidden');
+                
+                navDriverBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-all duration-200 bg-blue-600 text-white shadow";
+                navExecBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-slate-400 hover:text-slate-200";
+                
+                footerDriverBtn.className = "flex flex-col items-center text-blue-400";
+                footerExecBtn.className = "flex flex-col items-center text-slate-500 hover:text-slate-300";
+            } else {
+                driverView.classList.add('hidden');
+                execView.classList.remove('hidden');
+                
+                navExecBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-all duration-200 bg-blue-600 text-white shadow";
+                navDriverBtn.className = "px-3 py-1.5 rounded-lg font-medium transition-all duration-200 text-slate-400 hover:text-slate-200";
+                
+                footerExecBtn.className = "flex flex-col items-center text-blue-400";
+                footerDriverBtn.className = "flex flex-col items-center text-slate-500 hover:text-slate-300";
+                
+                renderFleetList();
+            }
+        }
+
+        // Image Upload & Preview Handler
+        function handleImagePreview(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImageData = e.target.result;
+                    document.getElementById('image-preview').src = uploadedImageData;
+                    document.getElementById('image-preview-container').classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removeImage() {
+            uploadedImageData = null;
+            document.getElementById('photo-upload').value = '';
+            document.getElementById('image-preview-container').classList.add('hidden');
+        }
+
+        // GPS Geolocation Handler
+        function getGPSLocation() {
+            const statusEl = document.getElementById('gps-status');
+            if ("geolocation" in navigator) {
+                statusEl.innerText = "กำลังค้นหาพิกัด...";
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        const lat = position.coords.latitude.toFixed(4);
+                        const lng = position.coords.longitude.toFixed(4);
+                        currentGPS = `${lat}, ${lng}`;
+                        statusEl.innerText = `พิกัด: ${currentGPS}`;
+                        statusEl.className = "text-[10px] text-emerald-400 font-semibold";
+                        showToast("สำเร็จ", "ดึงพิกัด GPS เรียบร้อยแล้ว", "success");
+                    },
+                    function(error) {
+                        statusEl.innerText = "ไม่สามารถดึงพิกัดได้ (โปรดเปิด GPS)";
+                        statusEl.className = "text-[10px] text-red-400";
+                        showToast("ข้อผิดพลาด", "ไม่สามารถเข้าถึงตำแหน่ง GPS ได้", "error");
+                    }
+                );
+            } else {
+                statusEl.innerText = "อุปกรณ์ไม่รองรับ GPS";
+            }
+        }
+
+        // Handle Form Submission from Driver
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const truck = document.getElementById('truck-select').value;
+            const odometer = document.getElementById('odometer').value;
+            const severity = document.querySelector('input[name="severity"]:checked').value;
+            const driverName = document.getElementById('driver-name').value;
+            const description = document.getElementById('description').value;
+
+            // Categories
+            const checkedCategories = Array.from(document.querySelectorAll('input[name="category"]:checked')).map(cb => cb.value);
+
+            // Construct Ticket Object
+            const newTicket = {
+                id: 'TK-' + Math.floor(1000 + Math.random() * 9000),
+                truck: truck,
+                driver: driverName,
+                odometer: Number(odometer).toLocaleString(),
+                severity: severity,
+                categories: checkedCategories,
+                description: description || 'ไม่มีรายละเอียดเพิ่มเติม',
+                gps: currentGPS || 'ไม่ระบุพิกัด',
+                photo: uploadedImageData || 'https://images.unsplash.com/photo-1586191582152-47e09ef2825e?w=500&auto=format&fit=crop&q=60',
+                status: severity === 'breakdown' ? 'breakdown' : 'repair',
+                time: 'เพิ่งแจ้งเมื่อครู่'
+            };
+
+            // Update local fleet data
+            // If truck already exists in list, update it
+            const existingIndex = fleetData.findIndex(item => item.truck === truck);
+            if (existingIndex !== -1) {
+                fleetData[existingIndex] = newTicket;
+            } else {
+                fleetData.unshift(newTicket);
+            }
+
+            // Trigger LINE Notification Payload
+            sendLineNotifyPayload(newTicket);
+
+            // Reset Form & Show Success Message
+            document.getElementById('repair-form').reset();
+            removeImage();
+            currentGPS = null;
+            document.getElementById('gps-status').innerText = "ยังไม่ได้ดึงพิกัด";
+            document.getElementById('gps-status').className = "text-[10px] text-slate-400";
+
+            showToast("ส่งแจ้งซ่อมสำเร็จ!", "ข้อมูลถูกส่งไปยังผู้บริหารและทีมช่างเรียบร้อยแล้ว", "success");
+            
+            // Switch to Dashboard View to view updated state
+            setTimeout(() => {
+                updateDashboardMetrics();
+                switchTab('exec');
+            }, 1200);
+        }
+
+        // Calculate Metrics and Render Dashboard
+        function updateDashboardMetrics() {
+            const total = fleetData.length;
+            const ready = fleetData.filter(f => f.status === 'ready').length;
+            const repair = fleetData.filter(f => f.status === 'repair').length;
+            const pending = fleetData.filter(f => f.status === 'pending').length;
+            const breakdown = fleetData.filter(f => f.status === 'breakdown').length;
+
+            document.getElementById('cnt-ready').innerText = ready;
+            document.getElementById('cnt-repair').innerText = repair;
+            document.getElementById('cnt-pending').innerText = pending;
+            document.getElementById('cnt-breakdown').innerText = breakdown;
+
+            const availabilityRate = Math.round((ready / total) * 100) || 0;
+            document.getElementById('fleet-availability-rate').innerText = `${availabilityRate}%`;
+
+            // Update Progress Bar
+            document.getElementById('bar-ready').style.width = `${(ready / total) * 100}%`;
+            document.getElementById('bar-repair').style.width = `${((repair + pending) / total) * 100}%`;
+            document.getElementById('bar-breakdown').style.width = `${(breakdown / total) * 100}%`;
+        }
+
+        // Render Fleet Tickets List
+        function renderFleetList() {
+            const container = document.getElementById('truck-tickets-list');
+            const filter = document.getElementById('filter-status').value;
+            container.innerHTML = '';
+
+            let filteredData = fleetData;
+            if (filter !== 'all') {
+                filteredData = fleetData.filter(item => item.status === filter);
+            }
+
+            if (filteredData.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-500">
+                        <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs">ไม่พบรายการในหมวดหมู่นี้</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filteredData.forEach(item => {
+                let statusBadge = '';
+                let borderClass = '';
+
+                if (item.status === 'breakdown') {
+                    statusBadge = `<span class="bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold animate-pulse">🔴 จอดเสีย (Breakdown)</span>`;
+                    borderClass = 'border-l-4 border-l-red-500';
+                } else if (item.status === 'repair') {
+                    statusBadge = `<span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">🟡 อยู่ระหว่างซ่อม</span>`;
+                    borderClass = 'border-l-4 border-l-amber-500';
+                } else if (item.status === 'pending') {
+                    statusBadge = `<span class="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">🔵 รอคิว / อะไหล่</span>`;
+                    borderClass = 'border-l-4 border-l-blue-500';
+                } else {
+                    statusBadge = `<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-md text-[10px] font-bold">🟢 พร้อมใช้งาน</span>`;
+                    borderClass = 'border-l-4 border-l-emerald-500';
+                }
+
+                const cardHtml = `
+                    <div class="bg-slate-800/90 rounded-xl p-3.5 border border-slate-700 ${borderClass} space-y-2 shadow-md">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-sm text-white">${item.truck}</h4>
+                                <p class="text-[11px] text-slate-400">พขร: ${item.driver} | ไมล์: ${item.odometer} กม.</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+
+                        ${item.status !== 'ready' ? `
+                            <div class="bg-slate-900/80 p-2.5 rounded-lg space-y-1 text-xs">
+                                <p class="text-slate-300"><span class="text-slate-400">อาการ:</span> ${item.description}</p>
+                                <div class="flex flex-wrap gap-1 pt-1">
+                                    ${item.categories.map(cat => `<span class="bg-slate-800 text-blue-300 border border-slate-700 px-1.5 py-0.5 rounded text-[10px]">${cat}</span>`).join('')}
+                                </div>
+                                ${item.gps && item.gps !== 'ไม่ระบุพิกัด' ? `
+                                    <p class="text-[10px] text-red-400 pt-1 flex items-center">
+                                        <i class="fa-solid fa-location-dot mr-1"></i> GPS: ${item.gps}
+                                    </p>
+                                ` : ''}
+                            </div>
+                        ` : ''}
+
+                        <!-- Executive Status Change Action Controls -->
+                        <div class="flex items-center justify-between pt-1 border-t border-slate-700/60 text-xs">
+                            <span class="text-[10px] text-slate-500"><i class="fa-regular fa-clock mr-1"></i>${item.time}</span>
+                            <div class="flex items-center space-x-1">
+                                <span class="text-[10px] text-slate-400 mr-1">ปรับสถานะ:</span>
+                                <button onclick="changeTruckStatus('${item.id}', 'ready')" title="เปลี่ยนเป็น พร้อมใช้" class="px-2 py-1 bg-emerald-950 hover:bg-emerald-800 text-emerald-300 border border-emerald-700/50 rounded-md text-[10px] font-medium transition">
+                                    พร้อมใช้
+                                </button>
+                                <button onclick="changeTruckStatus('${item.id}', 'repair')" title="เปลี่ยนเป็น กำลังซ่อม" class="px-2 py-1 bg-amber-950 hover:bg-amber-800 text-amber-300 border border-amber-700/50 rounded-md text-[10px] font-medium transition">
+                                    กำลังซ่อม
+                                </button>
+                                <button onclick="changeTruckStatus('${item.id}', 'breakdown')" title="เปลี่ยนเป็น จอดเสีย" class="px-2 py-1 bg-red-950 hover:bg-red-800 text-red-300 border border-red-700/50 rounded-md text-[10px] font-medium transition">
+                                    จอดเสีย
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += cardHtml;
+            });
+        }
+
+        // Executive Action: Change Status of Vehicle
+        function changeTruckStatus(id, newStatus) {
+            const item = fleetData.find(f => f.id === id);
+            if (item) {
+                item.status = newStatus;
+                updateDashboardMetrics();
+                renderFleetList();
+                showToast("อัปเดตสถานะสำเร็จ", `เปลี่ยนสถานะรถ ${item.truck} เรียบร้อยแล้ว`, "info");
+            }
+        }
+
+        // Simulate LINE Notify Payload Generator & Dispatcher
+        function sendLineNotifyPayload(ticket) {
+            const token = localStorage.getItem('line_notify_token');
+            const severityEmoji = ticket.severity === 'breakdown' ? '🔴 [BREAKDOWN]' : ticket.severity === 'urgent' ? '🟡 [URGENT]' : '🟢 [MINOR]';
+            
+            const message = `
+🔔 *แจ้งซ่อมรถบรรทุกใหม่ (TBL Fleet)*
+-------------------------------
+สถานะ: ${severityEmoji}
+🚛 รถ: ${ticket.truck}
+👤 พขร: ${ticket.driver}
+📏 เลขไมล์: ${ticket.odometer} กม.
+🛠 หมวดหมู่: ${ticket.categories.join(', ') || 'ทั่วไป'}
+📝 อาการ: ${ticket.description}
+📍 พิกัด: ${ticket.gps}
+-------------------------------
+ดู Dashboard: ${window.location.href}
+`;
+
+            console.log("--- LINE NOTIFY PAYLOAD PREVIEW ---");
+            console.log(message);
+
+            if (token) {
+                // If Token exists, perform fetch to webhook API or CORS Proxy
+                showToast("LINE Alert Dispatched", "ยิงข้อมูลการแจ้งเตือนไปยัง LINE เรียบร้อยแล้ว", "info");
+            }
+        }
+
+        function saveLineToken() {
+            const token = document.getElementById('line-token-input').value;
+            if (token) {
+                localStorage.setItem('line_notify_token', token);
+                showToast("บันทึกเรียบร้อย", "บันทึก LINE Notify Token / Webhook แล้ว", "success");
+            }
+        }
+
+        // Helper Toast Notification
+        function showToast(title, msg, type = 'info') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const titleEl = document.getElementById('toast-title');
+            const msgEl = document.getElementById('toast-msg');
+
+            titleEl.innerText = title;
+            msgEl.innerText = msg;
+
+            if (type === 'success') {
+                icon.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i>';
+            } else if (type === 'error') {
+                icon.innerHTML = '<i class="fa-solid fa-circle-xmark text-red-400"></i>';
+            } else {
+                icon.innerHTML = '<i class="fa-solid fa-circle-info text-blue-400"></i>';
+            }
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
